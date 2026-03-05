@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="nl">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Login</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            font-family: Arial;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background: #f4f6f9;
+        }
+
+        .card {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            width: 300px;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        input {
+            width: 100%;
+            padding: 10px;
+            margin: 8px 0;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+        }
+
+        button {
+            width: 100%;
+            padding: 10px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #2980b9;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="card">
+        <h2>Login</h2>
+        <input id="email" type="email" placeholder="Email">
+        <input id="password" type="password" placeholder="Wachtwoord">
+        <button onclick="login()">Inloggen</button>
+    </div>
+
+    <script src="users.js"></script>
+    <script>
+        function login() {
+            const users = [
+                { email: "leerkracht1@school1.be", password: "1234", role: "leerkracht" },
+                { email: "leerkracht2@school1.be", password: "abcd", role: "leerkracht" },
+                { email: "directie@school1.be", password: "admin123", role: "directie" },
+                { email: "directie@school2.be", password: "admin456", role: "directie" }
+            ];
+
+            function login() {
+                const email = document.getElementById("email").value.trim();
+                const password = document.getElementById("password").value.trim();
+
+                const user = users.find(u => u.email === email && u.password === password);
+                if (user) {
+                    // Opslaan in localStorage zodat andere pagina's weten wie ingelogd is
+                    localStorage.setItem("email", user.email);
+                    localStorage.setItem("role", user.role);
+
+                    // Doorsturen naar index.html
+                    window.location = "index.html";
+                } else {
+                    alert("Verkeerd email of wachtwoord!");
+                }
+            }
+            const email = document.getElementById("email").value.trim();
+            const password = document.getElementById("password").value.trim();
+            const user = users.find(u => u.email === email && u.password === password);
+            if (!user) {
+                alert("Email of wachtwoord verkeerd");
+                return;
+            }
+            // Opslaan in localStorage
+            localStorage.setItem("role", user.role);
+            localStorage.setItem("email", user.email);
+            window.location = "index.html"; // naar hoofdpagina
+        }
+    </script>
+
+</body>
+
+</html>

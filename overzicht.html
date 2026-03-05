@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Overzicht Leerling</title>
+<style>
+body { font-family: Arial; padding: 20px; background: #f2f6fb; }
+.container { margin:auto; background:white; padding:25px; border-radius:12px; }
+select, button { padding:8px; margin:5px; border-radius:6px; border:1px solid #ccc; }
+button { cursor:pointer; background:#3498db; color:white; border:none; }
+button:hover { background:#2980b9; }
+table { width:100%; border-collapse:collapse; margin-top:20px; table-layout:fixed; }
+th, td { padding:12px; text-align:left; border-bottom:1px solid #ddd; word-wrap:break-word; }
+.level-red { color: #e74c3c; font-weight:bold; }
+.level-orange { color: #f39c12; font-weight:bold; }
+.level-green { color: #2ecc71; font-weight:bold; }
+.level-blue { color: blue; font-weight:bold; }
+.level-gray { color: gray; font-weight:bold; }
+.top-buttons { margin-bottom:15px; }
+</style>
+<!-- SheetJS voor Excel export -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+<!-- jsPDF voor PDF export -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+
+<script>
+// Rol-check: enkel toegang als ingelogd
+const role = localStorage.getItem("role");
+if(!role){ window.location="login.html"; }
+</script>
+
+<div class="container">
+<h2>Overzicht Leerling</h2>
+
+<div class="top-buttons">
+    <a href="index.html"><button>Terug naar registratie</button></a>
+    <button style="background:#e74c3c;" onclick="logout()">Uitloggen</button>
+</div>
+
+<label>Klas:</label>
+<select id="klasSelect"><option value="">-- Kies klas --</option></select>
+
+<label>Leerling:</label>
+<select id="leerlingSelect"><option value="">-- Kies leerling --</option></select>
+
+<button id="pdfButton" style="display:none;">PDF van leerling</button>
+<button id="excelButton" style="display:none;">Excel van leerling</button>
+
+<table>
+<thead>
+<tr>
+<th>Datum</th>
+<th>Klas</th>
+<th>Domein</th>
+<th>Thema</th>
+<th>Doel</th>
+<th>Resultaat</th>
+</tr>
+</thead>
+<tbody id="resultTable"></tbody>
+</table>
+</div>
+
+<script>
+// Data ophalen uit localStorage
+const students = JSON.parse(localStorage.getItem("students")) || [];
+const registraties = JSON.parse(localStorage.getItem("registraties")) || [];
+const doelUitlegPerThema = JSON.parse(localStorage.getItem("doelUitlegPerThema")) || {};
+
+const klasSelect = document.getElementById("klasSelect");
+const leerlingSelect = document.getElementById("leerlingSelect");
+const resultTable = document.getElementById("resultTable");
+const pdfButton = document.getElementById("pdfButton");
+const excelButton = document.getElementById("excelButton");
+
+// Klassen vullen
+const klassen = [...new Set(students.map(s => s.klas))].sort();
+klassen.forEach(k=>{
+    const opt = document.createElement("option");
+    opt.value = k; opt.textContent = k;
+    klasSelect.appendChild(opt);
+});
+
+// Leerlingen bij klas-selectie
+klasSelect.addEventListener("change", ()=>{
+    const klas = klasSelect.value;
+    leerlingSelect.innerHTML = '<option value="">-- Kies leerling --</option>';
+    resultTable.innerHTML=''; pdfButton.style.display='none'; excelButton.style.display='none';
+    if(!klas) return;
+    const leerlingen = students
+        .filter(s=>s.klas===klas)
+        .sort((a,b)=> a.name.split(" ").slice(1).join("").localeCompare(b.name.split(" ").slice(1).join("")));
+    leerlingen.forEach(l=>{
+        const opt = document.createElement("option");
+        opt.value = l.name; opt.textContent = l.name;
+        leerlingSelect.appendChild(opt);
+    });
+});
+
+// Resultaten tonen bij leerling-selectie
+leerlingSelect.addEventListener("change", ()=>{
+    updateResultTable();
+    const visible = leerlingSelect.value ? 'inline-block' : 'none';
+    pdfButton.style.display = visible;
+    excelButton.style.display = visible;
+});
+
+function updateResultTable(){
+    const leerling = leerlingSelect.value;
+    resultTable.innerHTML='';
+    if(!leerling) return;
+    const data = registraties.filter(r=>r.resultaten.some(res=>res.naam===leerling && res.niveau && res.niveau!=="-"));
+    data.forEach(r=>{
+        const resultaatObj = r.resultaten.find(res=>res.naam===leerling && res.niveau && res.niveau!=="-");
+        if(!resultaatObj) return;
+        const uitleg = doelUitlegPerThema[r.thema]?.[r.doel] || {};
+        let niveauTekst='', niveauClass='';
+        switch(resultaatObj.niveau){
+            case "Starter": niveauTekst=`Starter: ${uitleg.Starter||''}`; niveauClass='level-red'; break;
+            case "Lerende": niveauTekst=`Lerende: ${uitleg.Lerende||''}`; niveauClass='level-orange'; break;
+            case "Gevorderd": niveauTekst=`Gevorderd: ${uitleg.Gevorderd||''}`; niveauClass='level-green'; break;
+            case "Expert": niveauTekst=`Expert: ${uitleg.Expert||''}`; niveauClass='level-blue'; break;
+            case "Afwezig": niveauTekst=`Afwezig: ${uitleg.Afwezig||''}`; niveauClass='level-gray'; break;
+        }
+        const row=document.createElement("tr");
+        row.innerHTML=`
+            <td>${formatDatum(r.datum)}</td>
+            <td>${r.klas}</td>
+            <td>${r.domein||'-'}</td>
+            <td>${r.thema}</td>
+            <td>${r.doel}</td>
+            <td class="${niveauClass}">${niveauTekst}</td>
+        `;
+        resultTable.appendChild(row);
+    });
+}
+
+// PDF export
+pdfButton.addEventListener("click", ()=>{
+    const naam = leerlingSelect.value;
+    if(!naam) return;
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    doc.setFontSize(16); doc.text(`Overzicht leerling: ${naam}`, 10, 20);
+    const data = registraties.filter(r=>r.resultaten.some(res=>res.naam===naam && res.niveau && res.niveau!=="-"));
+    let y=30; doc.setFontSize(12);
+    data.forEach(r=>{
+        const resultaatObj = r.resultaten.find(res=>res.naam===naam && res.niveau && res.niveau!=="-");
+        if(!resultaatObj) return;
+        const uitleg = doelUitlegPerThema[r.thema]?.[r.doel] || {};
+        let txt = resultaatObj.niveau; if(txt && uitleg[txt]) txt += `: ${uitleg[txt]}`;
+        const regel=`Datum: ${formatDatum(r.datum)}\nKlas: ${r.klas}\nDomein: ${r.domein||'-'}\nThema: ${r.thema}\nDoel: ${r.doel}\nResultaat: ${txt}\n`;
+        const lines = doc.splitTextToSize(regel, 180);
+        lines.forEach(line=>{ doc.text(line,10,y); y+=7; if(y>280){doc.addPage(); y=20;} });
+        y+=5;
+    });
+    doc.save(`${naam}.pdf`);
+});
+
+// Excel export
+excelButton.addEventListener("click", ()=>{
+    const naam = leerlingSelect.value;
+    if(!naam) return;
+    const data = registraties
+        .filter(r => r.resultaten.some(res => res.naam===naam && res.niveau && res.niveau!=="-"))
+        .map(r=>{
+            const resultaatObj = r.resultaten.find(res => res.naam===naam && res.niveau && res.niveau!=="-");
+            const uitleg = doelUitlegPerThema[r.thema]?.[r.doel] || {};
+            let txt = resultaatObj.niveau;
+            if(txt && uitleg[txt]) txt += `: ${uitleg[txt]}`;
+            return {
+                Datum: formatDatum(r.datum),
+                Klas: r.klas,
+                Domein: r.domein || '-',
+                Thema: r.thema,
+                Doel: r.doel,
+                Resultaat: txt
+            };
+        });
+    if(data.length===0){ alert("Geen resultaten om te exporteren"); return; }
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, naam);
+    XLSX.writeFile(wb, `${naam}.xlsx`);
+});
+
+// Datum formatteren
+function formatDatum(d){ 
+    const date=new Date(d);
+    const dag=String(date.getDate()).padStart(2,'0');
+    const maand=String(date.getMonth()+1).padStart(2,'0');
+    const jaar=date.getFullYear();
+    return `${dag}-${maand}-${jaar}`;
+}
+
+// Logout
+function logout(){ localStorage.clear(); window.location="login.html"; }
+
+</script>
+
+</body>
+</html>

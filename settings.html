@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="nl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Instellingen</title>
+    <style>
+        body {
+            font-family: Arial;
+            padding: 20px;
+            background: #f4f6f9;
+        }
+
+        .card {
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            margin: auto;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+        }
+
+        h2,
+        h3 {
+            margin-top: 0;
+            padding: 10px;
+        }
+
+        input,
+        select,
+        button {
+            margin: 5px;
+            padding: 8px;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+        }
+
+        button {
+            cursor: pointer;
+            background: #3498db;
+            color: white;
+            border: none;
+        }
+
+        button:hover {
+            background: #2980b9;
+        }
+
+        ul {
+            padding-left: 20px;
+        }
+
+        li {
+            margin: 5px 0;
+        }
+
+        .del {
+            background: #e74c3c;
+            margin-left: 5px;
+        }
+
+        .del:hover {
+            background: #c0392b;
+        }
+
+        .subsection {
+            margin-top: 15px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            background: #fafafa;
+        }
+
+        .label-inline {
+            display: inline-block;
+            width: 90px;
+        }
+
+        /* Zoekbalk */
+        #sectionFilter {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 20px;
+            font-size: 16px;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="card">
+
+        <h2>Instellingen</h2>
+        <a href="index.html"><button>Terug naar registratie</button></a>
+
+        <!-- ZOEKBALK SECTIE -->
+        <input type="text" id="sectionFilter" placeholder="Kies uit: Domein toevoegen, Thema toevoegen aan domein, Doel toevoegen aan thema">
+
+        <!-- DOMEIN TOEVOEGEN -->
+        <div class="subsection" id="domeinSection">
+            <h3>Domein toevoegen</h3>
+            <input id="nieuwDomein" placeholder="Nieuw domein">
+            <button onclick="addDomein()">Toevoegen</button>
+            <ul id="domeinOverzicht"></ul>
+        </div>
+
+        <!-- THEMA TOEVOEGEN -->
+        <div class="subsection" id="themaSection">
+            <h3>Thema toevoegen aan domein</h3>
+            <label>Domein:</label>
+            <select id="domeinSelect"></select>
+            <input id="nieuwThema" placeholder="Nieuw thema">
+            <button onclick="addThema()">Toevoegen</button>
+            <ul id="themaOverzicht"></ul>
+        </div>
+
+        <!-- DOEL TOEVOEGEN -->
+        <div class="subsection" id="doelSection">
+            <h3>Doel toevoegen aan thema</h3>
+            <label>Thema:</label>
+            <select id="themaSelect"></select>
+            <input id="doelInput" placeholder="Nieuw doel">
+            <br>
+            <span class="label-inline">Starter:</span><input id="starterUitleg" placeholder="Uitleg starter">
+            <br>
+            <span class="label-inline">Lerende:</span><input id="lerendeUitleg" placeholder="Uitleg lerende">
+            <br>
+            <span class="label-inline">Gevorderd:</span><input id="gevorderdUitleg" placeholder="Uitleg gevorderd">
+            <br>
+            <span class="label-inline">Expert:</span><input id="expertUitleg" placeholder="Uitleg expert">
+            <br>
+            <span class="label-inline">Afwezig:</span><input id="afwezigUitleg" placeholder="Uitleg afwezig">
+            <br>
+            <button onclick="addDoelUitleg()">Toevoegen</button>
+            <ul id="doelOverzicht"></ul>
+        </div>
+
+    </div>
+
+    <script>
+        // ===== DATA =====
+        let domeinen = JSON.parse(localStorage.getItem("domeinen")) || [];
+        let themasPerDomein = JSON.parse(localStorage.getItem("themasPerDomein")) || {};
+        let doelUitlegPerThema = JSON.parse(localStorage.getItem("doelUitlegPerThema")) || {};
+
+        // ===== FUNCTIES DOMEIN =====
+        function updateDomeinSelect() {
+            const select = document.getElementById("domeinSelect");
+            select.innerHTML = "";
+            domeinen.forEach(d => {
+                const opt = document.createElement("option");
+                opt.value = d;
+                opt.textContent = d;
+                select.appendChild(opt);
+            });
+            updateThemaSelect();
+        }
+
+        function addDomein() {
+            const waarde = document.getElementById("nieuwDomein").value.trim();
+            if (!waarde) return;
+            if (!domeinen.includes(waarde)) {
+                domeinen.push(waarde);
+                themasPerDomein[waarde] = [];
+                localStorage.setItem("domeinen", JSON.stringify(domeinen));
+                localStorage.setItem("themasPerDomein", JSON.stringify(themasPerDomein));
+            }
+            document.getElementById("nieuwDomein").value = "";
+            toonDomeinOverzicht();
+            updateDomeinSelect();
+        }
+
+        function verwijderDomein(domein) {
+            domeinen = domeinen.filter(d => d !== domein);
+            if (themasPerDomein[domein]) {
+                for (const thema of themasPerDomein[domein]) {
+                    if (doelUitlegPerThema[thema]) delete doelUitlegPerThema[thema];
+                }
+                delete themasPerDomein[domein];
+            }
+            localStorage.setItem("domeinen", JSON.stringify(domeinen));
+            localStorage.setItem("themasPerDomein", JSON.stringify(themasPerDomein));
+            localStorage.setItem("doelUitlegPerThema", JSON.stringify(doelUitlegPerThema));
+            toonDomeinOverzicht();
+            updateDomeinSelect();
+            toonThemaOverzicht();
+            toonDoelOverzicht();
+        }
+
+        // ===== FUNCTIES THEMA =====
+        function updateThemaSelect() {
+            const select = document.getElementById("themaSelect");
+            select.innerHTML = "";
+            Object.values(themasPerDomein).flat().forEach(t => {
+                const opt = document.createElement("option");
+                opt.value = t;
+                opt.textContent = t;
+                select.appendChild(opt);
+            });
+        }
+
+        function addThema() {
+            const domein = document.getElementById("domeinSelect").value;
+            const waarde = document.getElementById("nieuwThema").value.trim();
+            if (!waarde || !domein) return;
+            if (!themasPerDomein[domein]) themasPerDomein[domein] = [];
+            if (!themasPerDomein[domein].includes(waarde)) {
+                themasPerDomein[domein].push(waarde);
+                localStorage.setItem("themasPerDomein", JSON.stringify(themasPerDomein));
+            }
+            document.getElementById("nieuwThema").value = "";
+            toonThemaOverzicht();
+            updateThemaSelect();
+        }
+
+        // ===== FUNCTIES DOEL / UITLEG =====
+        function addDoelUitleg() {
+            const thema = document.getElementById("themaSelect").value;
+            const doel = document.getElementById("doelInput").value.trim();
+            if (!thema || !doel) { alert("Selecteer thema en voer doel in"); return; }
+
+            const starter = document.getElementById("starterUitleg").value.trim();
+            const lerende = document.getElementById("lerendeUitleg").value.trim();
+            const gevorderd = document.getElementById("gevorderdUitleg").value.trim();
+            const expert = document.getElementById("expertUitleg").value.trim();
+            const afwezig = document.getElementById("afwezigUitleg").value.trim();
+
+            if (!doelUitlegPerThema[thema]) doelUitlegPerThema[thema] = {};
+            doelUitlegPerThema[thema][doel] = { Starter: starter, Lerende: lerende, Gevorderd: gevorderd, Expert: expert, Afwezig: afwezig };
+            localStorage.setItem("doelUitlegPerThema", JSON.stringify(doelUitlegPerThema));
+
+            document.getElementById("doelInput").value = "";
+            document.getElementById("starterUitleg").value = "";
+            document.getElementById("lerendeUitleg").value = "";
+            document.getElementById("gevorderdUitleg").value = "";
+            document.getElementById("expertUitleg").value = "";
+            document.getElementById("afwezigUitleg").value = "";
+
+            toonDoelOverzicht();
+        }
+
+        // ===== OVERZICHT TONEN =====
+        function toonDomeinOverzicht() {
+            const ul = document.getElementById("domeinOverzicht"); ul.innerHTML = "";
+            domeinen.forEach(d => {
+                const li = document.createElement("li");
+                li.textContent = d;
+                const btn = document.createElement("button"); btn.textContent = "Verwijderen"; btn.classList.add("del");
+                btn.onclick = () => verwijderDomein(d);
+                li.appendChild(btn);
+                ul.appendChild(li);
+            });
+        }
+
+        function toonThemaOverzicht() {
+            const ul = document.getElementById("themaOverzicht"); ul.innerHTML = "";
+            for (let d in themasPerDomein) {
+                themasPerDomein[d].forEach(t => {
+                    const li = document.createElement("li");
+                    li.textContent = `${t} (Domein: ${d})`;
+                    const btn = document.createElement("button"); btn.textContent = "Verwijderen"; btn.classList.add("del");
+                    btn.onclick = () => {
+                        themasPerDomein[d] = themasPerDomein[d].filter(x => x !== t);
+                        if (doelUitlegPerThema[t]) delete doelUitlegPerThema[t];
+                        localStorage.setItem("themasPerDomein", JSON.stringify(themasPerDomein));
+                        localStorage.setItem("doelUitlegPerThema", JSON.stringify(doelUitlegPerThema));
+                        toonThemaOverzicht();
+                        updateThemaSelect();
+                        toonDoelOverzicht();
+                    };
+                    li.appendChild(btn);
+                    ul.appendChild(li);
+                });
+            }
+        }
+
+        function toonDoelOverzicht() {
+            const ul = document.getElementById("doelOverzicht"); ul.innerHTML = "";
+            for (let thema in doelUitlegPerThema) {
+                for (let doel in doelUitlegPerThema[thema]) {
+                    const li = document.createElement("li");
+                    li.textContent = `${doel} (Thema: ${thema})`;
+                    const btn = document.createElement("button"); btn.textContent = "Verwijderen"; btn.classList.add("del");
+                    btn.onclick = () => {
+                        delete doelUitlegPerThema[thema][doel];
+                        if (Object.keys(doelUitlegPerThema[thema]).length === 0) delete doelUitlegPerThema[thema];
+                        localStorage.setItem("doelUitlegPerThema", JSON.stringify(doelUitlegPerThema));
+                        toonDoelOverzicht();
+                    };
+                    li.appendChild(btn);
+                    ul.appendChild(li);
+                }
+            }
+        }
+
+        // ===== FILTER SECTIES =====
+        const sectionFilter = document.getElementById("sectionFilter");
+        const sections = {
+            "domein toevoegen": document.getElementById("domeinSection"),
+            "thema toevoegen aan domein": document.getElementById("themaSection"),
+            "doel toevoegen aan thema": document.getElementById("doelSection")
+        };
+
+        sectionFilter.addEventListener("input", () => {
+            const val = sectionFilter.value.toLowerCase();
+            Object.keys(sections).forEach(key => {
+                if (val === key) sections[key].style.display = "block";
+                else sections[key].style.display = "none";
+            });
+        });
+
+        // ===== INIT =====
+        updateDomeinSelect();
+        toonDomeinOverzicht();
+        toonThemaOverzicht();
+        toonDoelOverzicht();
+    </script>
+</body>
+
+</html>

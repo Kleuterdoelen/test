@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Klassen wijzigen</title>
+<style>
+body { font-family: Arial; padding: 20px; background: #f4f6f9; }
+.card { background:white; padding:25px; border-radius:10px; margin:auto; box-shadow:0 6px 20px rgba(0,0,0,0.08); max-width:700px; }
+h2,h3 { margin-top:0; padding:10px; }
+input, select, button { margin:5px; padding:8px; border-radius:6px; border:1px solid #ccc; }
+button { cursor:pointer; background:#3498db; color:white; border:none; }
+button:hover { background:#2980b9; }
+.del { background:#e74c3c; }
+.del:hover { background:#c0392b; }
+.subsection { margin-top:15px; padding:10px; border:1px solid #ccc; border-radius:8px; background:#fafafa; }
+#filterSection { margin-bottom:15px; padding:10px; border:1px solid #ccc; border-radius:8px; background:#eef2f7; }
+#leerlingOverzicht ul { list-style:none; padding-left:0; margin:0; }
+#leerlingOverzicht li { border-bottom:1px solid #ddd; padding:8px 0; }
+#leerlingOverzicht li:last-child { border-bottom:none; }
+.leerling-item { display:flex; justify-content:space-between; align-items:center; }
+.button-group { display:flex; gap:5px; }
+</style>
+</head>
+<body>
+
+<script>
+// Rol-check: enkel directie mag
+const role = localStorage.getItem("role");
+if(!role || role!=="directie"){ 
+    alert("Je hebt geen toegang tot deze pagina");
+    window.location="login.html"; 
+}
+</script>
+
+<div class="card">
+<h2>Klas wijzigen</h2>
+<a href="index.html"><button>Terug naar registratie</button></a>
+<button style="background:#e74c3c;" onclick="logout()">Uitloggen</button>
+
+<h3>Leerlingen beheren</h3>
+<div class="subsection">
+<label>Voornaam:</label>
+<input id="voornaam" placeholder="Voornaam"><br>
+<label>Achternaam:</label>
+<input id="achternaam" placeholder="Achternaam"><br>
+<label>Klas:</label>
+<input id="leerlingKlas" placeholder="Klas"><br>
+<button onclick="addLeerling()">Toevoegen / Opslaan</button>
+</div>
+
+<div id="filterSection">
+<h3>Filter leerlingen</h3>
+<label>Naam: </label>
+<input type="text" id="filterNaam" placeholder="Voornaam of achternaam">
+<label>Klas: </label>
+<select id="filterKlas"><option value="">Alle klassen</option></select>
+<button onclick="toonLeerlingOverzicht()">Filter</button>
+</div>
+
+<div id="leerlingOverzicht"></div>
+</div>
+
+<script>
+let students = JSON.parse(localStorage.getItem("students")) || [];
+
+// Leerling toevoegen / opslaan
+function addLeerling(){
+    const voornaam = document.getElementById("voornaam").value.trim();
+    const achternaam = document.getElementById("achternaam").value.trim();
+    const klas = document.getElementById("leerlingKlas").value.trim();
+    if(!voornaam || !achternaam || !klas){ alert("Vul voornaam, achternaam en klas in."); return; }
+    const volledigeNaam = voornaam + " " + achternaam;
+    const bestaande = students.find(s=>s.name===volledigeNaam && s.klas===klas);
+    if(!bestaande){ students.push({name:volledigeNaam, klas:klas}); }
+    localStorage.setItem("students", JSON.stringify(students));
+    document.getElementById("voornaam").value=""; document.getElementById("achternaam").value=""; document.getElementById("leerlingKlas").value="";
+    updateFilterKlas();
+    toonLeerlingOverzicht();
+}
+
+// Leerling verwijderen
+function verwijderLeerling(naam, klas){
+    students = students.filter(s => !(s.name===naam && s.klas===klas));
+    localStorage.setItem("students", JSON.stringify(students));
+    updateFilterKlas();
+    toonLeerlingOverzicht();
+}
+
+// Sorteren op achternaam
+function sorteerOpAchternaam(lijst){
+    return lijst.sort((a,b)=>{
+        const partsA = a.name.trim().split(" ");
+        const partsB = b.name.trim().split(" ");
+        const achternaamA = partsA.slice(1).join(" ").toLowerCase();
+        const achternaamB = partsB.slice(1).join(" ").toLowerCase();
+        const voornaamVerg = partsA[0].toLowerCase().localeCompare(partsB[0].toLowerCase());
+        const achternaamVerg = achternaamA.localeCompare(achternaamB);
+        return achternaamVerg || voornaamVerg;
+    });
+}
+
+// Filter klas select opties
+function updateFilterKlas(){
+    const select = document.getElementById("filterKlas");
+    const huidige = select.value;
+    select.innerHTML='<option value="">Alle klassen</option>';
+    const klassen=[...new Set(students.map(s=>s.klas))].sort();
+    klassen.forEach(k=>{
+        const opt=document.createElement("option"); opt.value=k; opt.textContent=k; select.appendChild(opt);
+    });
+    select.value=huidige;
+}
+
+// Leerling overzicht tonen
+function toonLeerlingOverzicht(){
+    const container=document.getElementById("leerlingOverzicht");
+    container.innerHTML="";
+    const filterNaam=document.getElementById("filterNaam").value.trim().toLowerCase();
+    const filterKlas=document.getElementById("filterKlas").value;
+    const klassen=[...new Set(students.map(s=>s.klas))].sort();
+    klassen.forEach(klas=>{
+        if(filterKlas && klas!==filterKlas) return;
+        const klasDiv=document.createElement("div"); klasDiv.style.marginBottom="15px";
+        const titel=document.createElement("h4"); titel.textContent=`Klas: ${klas}`; klasDiv.appendChild(titel);
+        const ul=document.createElement("ul");
+        let leerlingenInKlas=students.filter(s=>s.klas===klas);
+        if(filterNaam){ leerlingenInKlas=leerlingenInKlas.filter(s=>s.name.toLowerCase().includes(filterNaam)); }
+        leerlingenInKlas=sorteerOpAchternaam(leerlingenInKlas);
+        leerlingenInKlas.forEach(s=>{
+            const li=document.createElement("li"); li.classList.add("leerling-item");
+            const naamSpan=document.createElement("span"); naamSpan.textContent=s.name; li.appendChild(naamSpan);
+            const buttonGroup=document.createElement("div"); buttonGroup.classList.add("button-group");
+            const btnEdit=document.createElement("button"); btnEdit.textContent="Aanpassen"; btnEdit.style.background="#f39c12";
+            btnEdit.onclick=()=>{ 
+                const parts=s.name.split(" "); 
+                document.getElementById("voornaam").value=parts[0];
+                document.getElementById("achternaam").value=parts.slice(1).join(" ");
+                document.getElementById("leerlingKlas").value=s.klas;
+                verwijderLeerling(s.name,s.klas);
+            };
+            const btnDel=document.createElement("button"); btnDel.textContent="Verwijderen"; btnDel.classList.add("del");
+            btnDel.onclick=()=>verwijderLeerling(s.name,s.klas);
+            buttonGroup.appendChild(btnEdit); buttonGroup.appendChild(btnDel); li.appendChild(buttonGroup); ul.appendChild(li);
+        });
+        if(ul.children.length>0){ klasDiv.appendChild(ul); container.appendChild(klasDiv); }
+    });
+}
+
+// Logout
+function logout(){ localStorage.clear(); window.location="login.html"; }
+
+// Init
+updateFilterKlas();
+toonLeerlingOverzicht();
+</script>
+
+</body>
+</html>
